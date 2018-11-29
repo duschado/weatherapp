@@ -20,10 +20,10 @@ accu_temp_tag_index = accu_page.find(ACCU_TEMP_TAG)
 accu_temp_value_start = accu_temp_tag_index + accu_temp_tag_size
 accu_temp = ''
 for char in accu_page[accu_temp_value_start:]:
-	if char != '<':
-		accu_temp += char
-	else:
-		break
+    if char != '<':
+        accu_temp += char
+    else:
+        break
 
 ACCU_COND_TAG = '<span class="cond">'
 accu_cond_tag_size = len(ACCU_COND_TAG)
@@ -31,12 +31,47 @@ accu_cond_tag_index = accu_page.find(ACCU_COND_TAG)
 accu_cond_value_start = accu_cond_tag_index + accu_cond_tag_size
 accu_cond = ''
 for char in accu_page[accu_cond_value_start:]:
-	if char != '<':
-		accu_cond += char
-	else:
-		break
-	
+    if char != '<':
+        accu_cond += char
+    else:
+        break
+
 
 print('AccuWeather: \n')
 print(f'Temperature: {html.unescape(accu_temp)}\n')
 print(f'Conditions: {accu_cond}\n')
+
+
+RP5_URL = ("http://rp5.ua/%D0%9F%D0%BE%D0%B3%D0%BE%D0%B4%D0%B0_%D1%83_%D0%9B%D1"
+           "%8C%D0%B2%D0%BE%D0%B2%D1%96,_%D0%9B%D1%8C%D0%B2%D1%96%D0%B2%D1%81%D1"
+           "%8C%D0%BA%D0%B0_%D0%BE%D0%B1%D0%BB%D0%B0%D1%81%D1%82%D1%8C")
+
+rp5_request = Request(RP5_URL, headers=headers)
+rp5_page = urlopen(rp5_request).read()
+rp5_page = rp5_page.decode('utf-8')
+
+RP5_TEMP_TAG = '<span class="t_0" style="display: block;">'
+rp5_temp_tag_size = len(RP5_TEMP_TAG)
+rp5_temp_tag_index = rp5_page.find(RP5_TEMP_TAG)
+rp5_temp_value_start = rp5_temp_tag_index + rp5_temp_tag_size
+rp5_temp = ''
+for char in rp5_page[rp5_temp_value_start:]:
+    if char != '<':
+        rp5_temp += char
+    else:
+        break
+
+RP5_COND_TAG = """<div class="cn0" onmouseover="tooltip(this, '<b>"""
+rp5_cond_tag_size = len(RP5_COND_TAG)
+rp5_cond_tag_index = rp5_page.find(RP5_COND_TAG)
+rp5_cond_value_start = rp5_cond_tag_index + rp5_cond_tag_size
+rp5_cond = ''
+for char in rp5_page[rp5_cond_value_start:]:
+    if char != '<':
+        rp5_cond += char
+    else:
+        break
+
+print('RP5: \n')
+print(f'Temperature: {html.unescape(rp5_temp)}\n')
+print(f'Conditions: {rp5_cond}\n')

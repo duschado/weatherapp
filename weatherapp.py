@@ -61,9 +61,10 @@ for char in rp5_page[rp5_temp_value_start:]:
     else:
         break
 
-RP5_COND_TAG = """<div class="cn0" onmouseover="tooltip(this, '<b>"""
+RP5_CONTAINER_TAG = '<div class="cc_0">'
+RP5_COND_TAG = """<div class="cn4" onmouseover="tooltip(this, '<b>"""
 rp5_cond_tag_size = len(RP5_COND_TAG)
-rp5_cond_tag_index = rp5_page.find(RP5_COND_TAG)
+rp5_cond_tag_index = rp5_page.find(RP5_COND_TAG, rp5_page.find(RP5_CONTAINER_TAG))
 rp5_cond_value_start = rp5_cond_tag_index + rp5_cond_tag_size
 rp5_cond = ''
 for char in rp5_page[rp5_cond_value_start:]:

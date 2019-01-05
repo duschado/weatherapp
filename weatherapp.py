@@ -3,26 +3,25 @@
 """
 Weather app project.
 """
+import sys
 import html
+import argparse
+from bs4 import BeautifulSoup
 from urllib.request import urlopen, Request
 
 ACCU_URL = "https://www.accuweather.com/uk/ua/lviv/324561/weather-forecast/324561"
 ACCU_TAGS = ('<span class="large-temp">', '<span class="cond">')
-ACCU_CONTAINER_TAGS = ((), ('>Поточна погода</a>'))  
 
 RP5_URL = ("http://rp5.ua/%D0%9F%D0%BE%D0%B3%D0%BE%D0%B4%D0%B0_%D1%83_%D0%9B%D1"
            "%8C%D0%B2%D0%BE%D0%B2%D1%96,_%D0%9B%D1%8C%D0%B2%D1%96%D0%B2%D1%81%D1"
            "%8C%D0%BA%D0%B0_%D0%BE%D0%B1%D0%BB%D0%B0%D1%81%D1%82%D1%8C")
 RP5_TAGS = ('<div class="t_0"><b>', 
             """<div class="cn6" onmouseover="tooltip(this, '<b>""") 
-RP5_CONTAINER_TAGS = (('<div id="ftab_1_content"', 
-                       '<td class="title underlineRow toplineRow">'), 
-                      ('<div id="ftab_1_content"', 
-                       '<td class="title">', '<div class="cc_0">')) 
 
 
 def get_request_headers():
     return {'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64;)'}
+
 
 def get_page_source(url):
     """
@@ -33,56 +32,111 @@ def get_page_source(url):
     return page_source.decode('utf-8')
 
 
-def get_weather_info(page_content, tags, container_tags_list):
+def get_weather_info_accu(page_content):
     """
     """
-
-    weather_info_list = []
     
-    for tag in tags:
-        
-        for container_tags in container_tags_list:
-            container_tag_index = 0
-            for container_tag in container_tags:
-                container_tag_index = page_content.find(container_tag, container_tag_index)
+    city_page = BeautifulSoup(page_content, 'html.parser')
+    current_day_section = city_page.find(
+        'li', class_='night current first cl')
 
-        tag_index = page_content.find(tag, container_tag_index)
-        tag_size = len(tag)
-        value_start = tag_index + tag_size
-        
-        content = ''
-        for c in page_content[value_start:]:
-            if c != '<':
-                content += c
-            else:
-                break
-            
-        weather_info_list.append(content)
-            
-    return weather_info_list 
+    weather_info = {}
+    if current_day_section:
+        current_day_url = current_day_section.find('a').attrs['href']
+        if current_day_url:
+            current_day_page = get_page_source(current_day_url)
+            if current_day_page:
+                current_day = \
+                    BeautifulSoup(current_day_page, 'html.parser')
+                weather_details = \
+                    current_day.find('div', attrs={'id': 'detail-now'})
+                temp = weather_details.find('span', class_='large-temp')
+                if temp:
+                    weather_info['temp'] = temp.text
+                feal_temp = weather_details.find('span', class_='small-temp')
+                if feal_temp:
+                    weather_info['feal_temp'] = feal_temp.text
+                condition = weather_details.find('span', class_='cond')
+                if condition:
+                    weather_info['cond'] = condition.text
+                wind_info = weather_details.find_all('li', class_='wind')
+                if wind_info:
+                    weather_info['wind'] = \
+                        ' '.join(map(lambda t: t.text.strip(), wind_info))
+    return weather_info
+
+
+def get_weather_info_rp5(page_content):
+    """
+    """
+
+    city_page = BeautifulSoup(page_content, 'html.parser')
+    current_day = city_page.find('div', id='archiveString')
+
+    weather_info = {'temp': '', 'feal_temp': '', 'cond': '', 'wind': ''}
+    if current_day:
+        archive_temp = current_day.find('div', class_='ArchiveTemp')
+        if archive_temp:
+            temp = archive_temp.find('span', class_='t_0')
+            if temp:
+                weather_info['temp'] = temp.text
+        archive_temp_feeling = current_day.find('div', class_='ArchiveTempFeeling')
+        if archive_temp_feeling:
+            feal_temp = archive_temp_feeling.find('span', class_='t_0')
+            if feal_temp:
+                weather_info['feal_temp'] = feal_temp.text
+        archive_info = current_day.find('div', class_='ArchiveInfo')
+        if archive_info:
+            archive_text = archive_info.text
+            info_list = archive_text.split(',')
+            weather_info['cond'] = info_list[1].strip()
+            wind = info_list[4].strip()[:info_list[4].find(')')]
+            if wind:
+                weather_info['wind'] = wind 
+
+    return weather_info
     
 
-def produce_output(provider_name, temp, condition):
+def produce_output(info):
     """
     """
 
-    print(f'\n{provider_name}:')
-    print(f'Temperature: {html.unescape(temp)}')
-    print(f'Condition:   {condition}\n')
+    for key, value in info.items():
+        print(f'{key}: {html.unescape(value)}')
+    
 
-
-def main():
+def main(argv):
     """Main entry point.
     """
 
-    weather_sites = {"AccuWeather": (ACCU_URL, ACCU_TAGS, ACCU_CONTAINER_TAGS),
-                     "RP5": (RP5_URL, RP5_TAGS, RP5_CONTAINER_TAGS)}
+    KNOWN_COMMANDS = {'accu': 'AccuWeather', 'rp5': 'RP5'}
+    parser = argparse.ArgumentParser()
+    parser.add_argument('command', help='Service name', nargs=1)
+    params = parser.parse_args(argv)
+
+    weather_sites = {"AccuWeather": (ACCU_URL, ACCU_TAGS), 
+                     "RP5": (RP5_URL, RP5_TAGS)} 
+    
+    if params.command:
+        command = params.command[0]
+        if command in KNOWN_COMMANDS:
+            weather_sites = {
+                KNOWN_COMMANDS[command]:weather_sites[KNOWN_COMMANDS[command]]
+            }
+            print(f'{KNOWN_COMMANDS[command]}: \n')
+        else:
+            print("Unknown command provided!")
+            sys.exit(1)
+
+
     for name in weather_sites:
-        url, tags, container_tags_list = weather_sites[name]
+        url, tags = weather_sites[name] 
         content = get_page_source(url)
-        temp, condition = get_weather_info(content, tags, container_tags_list)
-        produce_output(name, temp, condition)
+        if name == 'AccuWeather':
+            produce_output(get_weather_info_accu(content))
+        if name == 'RP5':
+            produce_output(get_weather_info_rp5(content))
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])
